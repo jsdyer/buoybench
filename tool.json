@@ -20,7 +20,7 @@
   "data_info": {
     "mode": "snapshot",
     "detail": "ECCC buoy observations and marine forecast editions, retained with separate observation, issue and capture times.",
-    "cadence": "Every six hours",
+    "cadence": "Every 6 hours",
     "probes": [
       {
         "label": "Data retrieved",
