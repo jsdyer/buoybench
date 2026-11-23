@@ -1,16 +1,41 @@
 {
-  "id": "coolcode-tool-template",
-  "title": "CoolCode Tool Starter",
-  "description": "A browser-only example that trims lines and removes exact duplicates.",
-  "category": "security",
-  "tags": ["text", "lines", "duplicates"],
-  "icon": "scan-search",
-  "url": "/coolcode-tool-template/",
-  "source": "https://github.com/jsdyer/coolcode-tool-template",
+  "id": "buoybench",
+  "title": "Buoy Bench",
+  "description": "Compare Canadian buoy observations and retained marine forecasts across time.",
+  "category": "places",
+  "tags": [
+    "buoys",
+    "waves",
+    "marine",
+    "forecasts",
+    "Canada",
+    "British Columbia",
+    "Nova Scotia"
+  ],
+  "icon": "map",
+  "url": "/buoybench/",
+  "source": "https://github.com/jsdyer/buoybench",
   "hosting": "project",
   "access": "browser",
   "data_info": {
-    "mode": "local",
-    "detail": "The browser reads the text you paste and compares its lines."
+    "mode": "snapshot",
+    "detail": "ECCC buoy observations and marine forecast editions, retained with separate observation, issue and capture times.",
+    "cadence": "Every six hours",
+    "probes": [
+      {
+        "label": "Data retrieved",
+        "url": "https://coolcode.ca/buoybench/data/status.json",
+        "path": [
+          "retrieved_at"
+        ],
+        "precision": "minute",
+        "count_at": {
+          "path": [
+            "observations"
+          ],
+          "unit": "observations"
+        }
+      }
+    ]
   }
 }

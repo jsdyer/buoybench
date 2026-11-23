@@ -1,21 +1,14 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { cleanLines } from '../web/model.mjs';
-test('trims, removes blanks and preserves first-seen order', () => {
-  assert.deepEqual(cleanLines('  Halifax\nLangley\nHalifax\n\nVancouver  '), {
-    text: 'Halifax\nLangley\nVancouver', count: 3, removed: 1,
-  });
-});
-test('supports Windows and old Mac line endings', () => {
-  assert.equal(cleanLines('a\r\nb\ra').text, 'a\nb');
-});
-test('empty text and whitespace produce an empty result', () => {
-  assert.deepEqual(cleanLines(' \n\t'), { text: '', count: 0, removed: 0 });
-});
-test('preserves case and Unicode', () => {
-  assert.equal(cleanLines('Québec\nquébec\n東京\nQuébec').text, 'Québec\nquébec\n東京');
-});
-test('treats markup as ordinary text', () => {
-  assert.equal(cleanLines('<script>alert(1)</script>\n<script>alert(1)</script>').text, '<script>alert(1)</script>');
-});
-test('rejects non-text input', () => { assert.throws(() => cleanLines(null), TypeError); });
+import test from 'node:test';import assert from 'node:assert/strict';import {validateLedger,observationsAt,forecastsAt,afterCapture,metricValue,range,csv,officialUrl,sourceUrl} from '../web/model.mjs';
+const observation=(t,c,v,id='a')=>({id,latitude:49.34,longitude:-123.73,stationId:'4600146',observedAt:t,capturedAt:c,measurements:{windKmh:v,waveM:null,waterC:9,airC:7,pressureHpa:1000},source:'https://dd.weather.gc.ca/source.xml'});
+const first='2026-01-01T00:00:00Z',later='2026-01-01T12:00:00Z';
+const base=()=>({schema:'coolcode.buoybench.v1',capturedAt:later,stations:[{id:'4600146',name:'Halibut Bank',forecastId:'m0000028'}],observations:[observation(first,first,18.52)],forecasts:[],captures:[{capturedAt:first},{capturedAt:later}]});
+test('conversion, missing and zero remain distinct',()=>{assert.ok(Math.abs(metricValue(observation(first,first,18.52),'windKmh')-10)<1e-10);assert.equal(metricValue(observation(first,first,0),'windKmh'),0);assert.equal(metricValue(observation(first,first,null),'windKmh'),null);assert.equal(range([], 'waveM'),null);});
+test('earlier captures cannot see a later correction',()=>{const d=base();d.observations.push(observation(first,later,37.04,'b'));assert.equal(observationsAt(d,'4600146',first)[0].measurements.windKmh,18.52);assert.equal(observationsAt(d,'4600146',later)[0].measurements.windKmh,37.04);});
+test('outcomes exclude lookback observations retrieved after the forecast was issued',()=>{const rows=[observation('2026-01-01T02:00:00Z',later,1),observation('2026-01-01T08:00:00Z',later,1)];const f={issuedAt:first,capturedAt:'2026-01-01T06:00:00Z'};assert.equal(afterCapture(rows,f).length,1);assert.equal(afterCapture(rows,f)[0].observedAt,'2026-01-01T08:00:00Z');});
+test('forecasts are scoped by area and capture availability',()=>{const d=base();d.forecasts=[{areaId:'m0000028',capturedAt:later,issuedAt:first}];assert.equal(forecastsAt(d,d.stations[0],first).length,0);assert.equal(forecastsAt(d,d.stations[0],later).length,1);});
+test('a fifth configured station needs no model changes',()=>{const d=base();d.stations.push({id:'4600206',name:'La Perouse Bank'});d.observations.push({...observation(first,first,4),stationId:'4600206'});assert.equal(validateLedger(d).stations.length,2);assert.equal(observationsAt(d,'4600206',later).length,1);});
+test('reject malformed or nonfinite input without coercing it',()=>{const d=base();d.observations[0].measurements.windKmh='10';assert.throws(()=>validateLedger(d),/measurement/);d.observations=[];d.stations.push(d.stations[0]);assert.throws(()=>validateLedger(d),/duplicated/);});
+test('provider links cannot contain executable URL schemes or alternate hosts',()=>{assert.equal(sourceUrl('javascript:alert(1)'),null);assert.equal(sourceUrl('https://other.example/'),null);assert.ok(sourceUrl('https://dd.weather.gc.ca/a.xml'));assert.ok(officialUrl({id:'4600146'}).endsWith('46146'));});
+test('CSV preserves null as blank and escapes quoted source text',()=>{const result=csv([observation(first,first,null)]);assert.ok(result.includes('mean_wind_kn'));assert.ok(result.includes('"","","9"'));});
+
+test('CSV neutralizes imported spreadsheet formulas',()=>{const o=observation(first,first,1);o.source='=HYPERLINK("x")';assert.ok(csv([o]).includes("'=HYPERLINK"));});

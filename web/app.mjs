@@ -1,37 +1,30 @@
-import { cleanLines } from './model.mjs';
-const input = document.querySelector('#input');
-const output = document.querySelector('#output');
-const status = document.querySelector('#status');
-const copy = document.querySelector('#copy');
-function update() {
-  const result = cleanLines(input.value);
-  output.value = result.text;
-  status.textContent = `${result.count} unique ${result.count === 1 ? 'line' : 'lines'}; ${result.removed} ${result.removed === 1 ? 'duplicate' : 'duplicates'} removed.`;
-  copy.disabled = result.count === 0;
+import {METRICS,validateLedger,observationsAt,forecastsAt,afterCapture,metricValue,range,csv,officialUrl,sourceUrl} from './model.mjs';
+const $=id=>document.getElementById(id),el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
+let ledger,config={},shown=[],availableForecasts=[];
+const formatDate=s=>new Intl.DateTimeFormat('en-CA',{dateStyle:'medium',timeStyle:'short',timeZone:'UTC'}).format(new Date(s))+' UTC';
+const fmt=(n,d=1)=>n===null||n===undefined?'—':Number(n).toFixed(d);
+function option(value,label){const e=el('option',label);e.value=value;return e;}
+function download(data,name,type){const url=URL.createObjectURL(new Blob([data],{type}));const a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function populate(){const keep=$('station').value;const cutoff=$('capture').value;const captureList=[...ledger.captures].sort((a,b)=>b.capturedAt.localeCompare(a.capturedAt));$('capture').replaceChildren(...captureList.map(c=>option(c.capturedAt,formatDate(c.capturedAt))));if(captureList.some(c=>c.capturedAt===cutoff))$('capture').value=cutoff;const stationList=[...ledger.stations].sort((a,b)=>a.name.localeCompare(b.name));$('station').replaceChildren(...stationList.map(s=>option(s.id,s.name)));$('compare').replaceChildren(option('','No comparison'),...stationList.map(s=>option(s.id,s.name)));$('station').value=stationList.some(s=>s.id===keep)?keep:(stationList.some(s=>s.id===config.defaultStation)?config.defaultStation:stationList[0].id);$('compare').value=stationList.some(s=>s.id===config.compareStation)?config.compareStation:'';render();}
+function render(){const cutoff=$('capture').value,station=ledger.stations.find(s=>s.id===$('station').value),other=ledger.stations.find(s=>s.id===$('compare').value);if(!station)return;const all=observationsAt(ledger,station.id,cutoff);const from=$('hours').value==='all'?-Infinity:Date.parse(cutoff)-Number($('hours').value)*3600000;shown=all.filter(o=>Date.parse(o.observedAt)>=from);const comparison=other&&other.id!==station.id?observationsAt(ledger,other.id,cutoff).filter(o=>Date.parse(o.observedAt)>=from):[];const latest=shown.at(-1),second=comparison.at(-1);
+ $('coverage').textContent=`${ledger.captures.find(c=>c.capturedAt===cutoff)?.stationIds?.length||ledger.stations.length} watched buoys · ${ledger.observations.filter(o=>o.capturedAt<=cutoff).length.toLocaleString()} retained observation revisions · ${ledger.forecasts.filter(f=>f.capturedAt<=cutoff).length} forecast editions`;$('captured').textContent='Capture: '+formatDate(cutoff);$('station-id').textContent=(station.coast||'Canadian waters')+' / '+station.id;$('station-name').textContent=station.name;$('station-detail').textContent=latest?`${latest.latitude.toFixed(3)}°, ${latest.longitude.toFixed(3)}° · Observed ${formatDate(latest.observedAt)}`:'No observation in this capture and window.';$('official').href=officialUrl(station);
+ $('status').textContent=latest?`Showing ${shown.length} observations in the selected window. ${Date.parse(cutoff)-Date.parse(latest.observedAt)>6*3600000?'The newest reading was already more than six hours old at capture.':''}`:'No readings were captured for this station and window. Try a longer window or an earlier capture.';
+ if(Date.now()-Date.parse(ledger.capturedAt)>18*3600000)$('status').textContent+=' The published collection is over 18 hours old; check the official source for current conditions.';
+ $('metrics').replaceChildren(...['windKmh','waveM','waterC','airC'].map(key=>{const m=METRICS[key],card=el('div',undefined,'metric-card');card.append(el('p',m.label));const value=el('span',undefined,'metric-value');value.append(document.createTextNode(fmt(metricValue(latest,key))+' '),el('small',m.unit));card.append(value,el('p',other&&other.id!==station.id?`${other.name}: ${fmt(metricValue(second,key))} ${m.unit}`:'Latest available measurement','comparison'));return card;}));
+ $('series-caption').textContent=comparison.length?`Each buoy keeps its own observation times. ${other.name}: latest ${formatDate(second.observedAt)}.`:'Readings belong to this point station, not an entire marine area.';
+ drawChart(shown,comparison,station,other);
+ const prev=$('forecast').value;availableForecasts=forecastsAt(ledger,station,cutoff);$('forecast').replaceChildren(...availableForecasts.map(f=>option(f.id,formatDate(f.issuedAt)+' · '+f.id.slice(0,5))));if(availableForecasts.some(f=>f.id===prev))$('forecast').value=prev;if(!availableForecasts.length)$('forecast').append(option('','No forecast retained for this station'));renderForecast();
+ $('rows').replaceChildren(...shown.slice(-200).reverse().map(o=>{const row=el('tr');for(const v of [formatDate(o.observedAt),fmt(metricValue(o,'windKmh')),fmt(metricValue(o,'waveM')),fmt(metricValue(o,'waterC'))])row.append(el('td',v));const td=el('td'),u=sourceUrl(o.source);if(u){const a=el('a','ECCC XML');a.href=u;td.append(a);}else td.textContent='Imported record';row.append(td);return row;}));
 }
-input.addEventListener('input', update);
-document.querySelector('#sample').addEventListener('click', () => {
-  input.value = '  Halifax\nLangley\nHalifax\n\nVancouver  ';
-  update();
-});
-document.querySelector('#clear').addEventListener('click', () => {
-  input.value = '';
-  update();
-  input.focus();
-});
-if (navigator.clipboard && window.isSecureContext) {
-  copy.hidden = false;
-  copy.disabled = true;
-  copy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(output.value);
-      status.textContent = 'Result copied.';
-    } catch {
-      output.focus();
-      output.select();
-      status.textContent = 'Copy was unavailable. The result is selected so you can copy it manually.';
-    }
-  });
+function drawChart(first,second,station,other){const key=$('metric').value,m=METRICS[key],rows=[...first,...second];$('legend').replaceChildren(el('span',station.name),...(second.length?[el('span',other.name)]:[]));const values=rows.map(o=>metricValue(o,key)).filter(n=>n!==null);if(!values.length){$('chart').replaceChildren(el('p','No usable '+m.label.toLowerCase()+' readings in this window. Missing data is not zero.','empty'));return;}const ns='http://www.w3.org/2000/svg';const s=(tag,attrs,text)=>{const e=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);if(text)e.textContent=text;return e;};const width=Math.max(300,$('chart').clientWidth),left=54,right=width-12,ticks=width<600?2:4;const svg=s('svg',{viewBox:`0 0 ${width} 300`,role:'img','aria-label':`${m.label} in ${m.unit} over observation time`});const title=s('title',{},`${m.label}: ${station.name}${second.length?' and '+other.name:''}`);svg.append(title);const times=rows.map(o=>Date.parse(o.observedAt)),minTime=Math.min(...times),maxTime=Math.max(...times),low=Math.min(...values),high=Math.max(...values),pad=Math.max(.5,(high-low)*.12),bottom=low-pad,top=high+pad;const x=t=>left+(t-minTime)/Math.max(1,maxTime-minTime)*(right-left),y=v=>245-(v-bottom)/(top-bottom)*210;
+ for(let i=0;i<5;i++){const value=bottom+(top-bottom)*i/4,yy=y(value);svg.append(s('line',{x1:left,y1:yy,x2:right,y2:yy,stroke:'#d9e5e7'}),s('text',{x:left-10,y:yy+5,'text-anchor':'end'},fmt(value)));}
+ svg.append(s('text',{x:left,y:18},m.unit));for(let i=0;i<ticks;i++){const t=minTime+(maxTime-minTime)*i/(ticks-1);const label=new Intl.DateTimeFormat('en-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'UTC',hour12:false}).format(new Date(t));svg.append(s('text',{x:x(t),y:278,'text-anchor':i===0?'start':i===ticks-1?'end':'middle'},label));}
+ for(const[list,color]of [[first,'#14616a'],[second,'#ad452b']]){let path='',prev=null;for(const o of list){const v=metricValue(o,key),t=Date.parse(o.observedAt);if(v===null){prev=null;continue;}path+=(prev!==null&&t-prev<=10800000?'L':'M')+x(t).toFixed(2)+','+y(v).toFixed(2)+' ';const point=s('circle',{cx:x(t),cy:y(v),r:3.2,fill:color});point.append(s('title',{},`${formatDate(o.observedAt)}: ${fmt(v)} ${m.unit}`));svg.append(point);prev=t;}svg.prepend(s('path',{d:path,fill:'none',stroke:color,'stroke-width':2.5}));} $('chart').replaceChildren(svg);
 }
-// Namespace future preference storage as coolcode:<tool-id>:<key>.
-// Do not persist pasted text or uploads by default.
+function renderForecast(){const f=availableForecasts.find(f=>f.id===$('forecast').value),station=ledger.stations.find(s=>s.id===$('station').value);const box=$('forecast-text'),out=$('outcome');box.replaceChildren();out.replaceChildren();if(!f){box.append(el('p','No forecast edition was retained for this buoy at the selected capture.'));$('outcome-title').textContent='No forecast to compare';return;}box.append(el('h3',f.name),el('p','Issued '+formatDate(f.issuedAt),'forecast-meta'),el('p','First saved '+formatDate(f.capturedAt),'forecast-meta'));const u=sourceUrl(f.source);if(u){const a=el('a','Original ECCC forecast XML');a.href=u;box.append(a);}let sections=f.sections.filter(s=>!station.forecastLocation||!s.location||s.location===station.forecastLocation);if(!sections.length)sections=f.sections;for(const section of sections){box.append(el('h4',({'regularForecast':'Marine forecast','waveForecast':'Waves','extendedForecast':'Extended outlook'}[section.kind]||section.kind)+(section.location?' · '+section.location:'')));if(section.issuedAt&&section.issuedAt!==f.issuedAt)box.append(el('p','Issued '+formatDate(section.issuedAt),'forecast-meta'));for(const block of section.blocks)box.append(el('p',(block.period?block.period+': ':'')+block.text,block.field==='periodOfCoverage'?'period':undefined));}
+ const subsequent=afterCapture(observationsAt(ledger,station.id,$('capture').value),f);$('outcome-title').textContent=subsequent.length?`${subsequent.length} later observations`:'Waiting for later observations';if(!subsequent.length){out.append(el('p','This forecast is saved. Future scheduled captures can add observations made after it was saved. Come back after the next collection.'));return;}out.append(el('p',`${formatDate(subsequent[0].observedAt)} to ${formatDate(subsequent.at(-1).observedAt)}`,'small'));for(const key of ['windKmh','waveM','waterC']){const r=range(subsequent,key),row=el('div',undefined,'range-row');row.append(el('span',METRICS[key].label),el('strong',r?`${fmt(r.min)}–${fmt(r.max)} ${METRICS[key].unit}`:'No usable readings'));out.append(row);}out.append(el('p','These ranges include all later observations retained in this capture, which may extend beyond the narrative forecast period. They are evidence for manual review, not matched forecast errors.','small'));
+}
+for(const id of ['station','compare','capture','hours','metric'])$(id).addEventListener('change',render);$('forecast').addEventListener('change',renderForecast);$('save').addEventListener('click',()=>{if(ledger)download(JSON.stringify(ledger,null,2),'buoybench-receipt.json','application/json');});$('export').addEventListener('click',()=>download(csv(shown),'buoybench-observations.csv','text/csv'));$('import').addEventListener('change',async()=>{try{const file=$('import').files[0];if(!file)return;if(file.size>12000000)throw Error('Receipt exceeds 12 MB.');const next=validateLedger(JSON.parse(await file.text()));ledger=next;populate();$('status').textContent='Imported receipt. It stays in this tab only. '+$('status').textContent;}catch(e){$('status').textContent=e.message+' Existing data is unchanged.';}finally{$('import').value='';}});
+try{const responses=await Promise.all([fetch('./config.json'),fetch('./data/ledger.json')]);if(responses.some(r=>!r.ok))throw Error('The published data could not load.');[config,ledger]=await Promise.all(responses.map(r=>r.json()));ledger=validateLedger(ledger);populate();}catch(e){$('status').textContent=e.message+' Reload later or follow the official source links.';}
+
+let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(ledger)render();},150);});

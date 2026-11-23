@@ -1,34 +1,14 @@
 <!doctype html>
-<html lang="en-CA">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="{{DESCRIPTION}}">
-  <title>{{TITLE}} · CoolCode</title>
-  <link rel="stylesheet" href="./style.css">
-  <script type="module" src="./app.mjs"></script>
-  {{VISIT_COUNTER}}
-</head>
-<body data-tool-id="{{TOOL_ID}}">
-  <a class="skip" href="#main">Skip to content</a>
-  <header><a href="https://coolcode.ca/">← CoolCode.ca</a><a href="{{SOURCE_URL}}">Source &amp; instructions ↗</a></header>
-  <main id="main">
-    <p class="eyebrow">Browser tool starter</p>
-    <h1>{{TITLE}}</h1>
-    <p class="intro">{{DESCRIPTION}}</p>
-    <section aria-labelledby="example-title">
-      <h2 id="example-title">Clean a list</h2>
-      <p>Trim spaces, skip blank lines and remove exact duplicates. Capitalization stays distinct.</p>
-      <div class="panels">
-        <div><label for="input">Your lines</label><textarea id="input" rows="10" maxlength="100000" spellcheck="false" placeholder="Paste one item per line"></textarea></div>
-        <div><label for="output">Cleaned lines</label><textarea id="output" rows="10" readonly spellcheck="false"></textarea></div>
-      </div>
-      <div class="actions"><button id="sample" type="button">Load example</button><button id="clear" type="button">Clear</button><button id="copy" type="button" hidden>Copy result</button></div>
-      <p id="status" role="status" aria-live="polite">Paste a list to begin.</p>
-      <noscript><p>This tool needs JavaScript to process your text. The source is available above.</p></noscript>
-    </section>
-    <aside aria-label="Privacy"><strong>Stays on your device.</strong> The browser processes your text in this tab. Reloading clears it.</aside>
-  </main>
-  <footer>Part of <a href="https://coolcode.ca/">the CoolCode collection</a>. {{ISSUE_LINK}}</footer>
-</body>
-</html>
+<html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{{DESCRIPTION}}"><title>{{TITLE}} · CoolCode</title><link rel="stylesheet" href="./style.css"><script type="module" src="./app.mjs"></script>{{VISIT_COUNTER}}</head>
+<body data-tool-id="{{TOOL_ID}}"><a class="skip" href="#main">Skip to content</a><header class="top"><a href="https://coolcode.ca/">CoolCode.ca</a><span>CANADIAN MARINE OBSERVATIONS</span><a href="{{SOURCE_URL}}">Source &amp; guide</a></header>
+<main id="main"><section class="hero"><div><p class="eyebrow">Pacific to Atlantic</p><h1>Buoy <em>Bench.</em></h1><p class="intro">A forecast meets the water.<br>Compare the buoys. Keep the record.</p><p class="hero-note">Measured wind, waves and water temperature, alongside the marine forecasts that came before.</p></div><svg class="buoy" viewBox="0 0 310 240" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2"><path d="M15 177 Q48 153 80 177T145 177T210 177T275 177M15 194Q48 170 80 194T145 194T210 194T275 194M15 211Q48 187 80 211T145 211T210 211T275 211"/><path d="M130 165L143 94H168L180 165M141 112H171M138 133H175M155 94V49M145 66H166M130 165H180"/></g><path fill="#e37045" d="M119 159H191L179 179H131Z"/><path fill="#e37045" d="M143 94L155 73L168 94Z"/><circle fill="#e37045" cx="155" cy="43" r="5"/></svg></section>
+<div class="strip"><span id="coverage">Loading the retained record…</span><span id="captured"></span></div>
+<section class="workspace" aria-label="Compare buoy observations"><div class="controls"><div><label for="station">Buoy to inspect</label><select id="station"></select></div><div><label for="compare">Compare with</label><select id="compare"></select></div><div><label for="capture">Dated capture</label><select id="capture"></select></div><div><label for="hours">Observation window</label><select id="hours"><option value="24">Last 24 hours in capture</option><option value="72">Last 3 days in capture</option><option value="168">Last 7 days in capture</option><option value="all">All retained observations</option></select></div></div>
+<p id="status" role="status" aria-live="polite">Loading source data.</p><div class="station-heading"><div><p class="eyebrow" id="station-id"></p><h2 id="station-name">At the buoy</h2><p id="station-detail"></p></div><a id="official" href="https://weather.gc.ca/marine/">Current official conditions</a></div><div class="metrics" id="metrics"></div>
+<div class="chart-panel"><div class="chart-head"><div><h3>Follow the observations</h3><p id="series-caption">Values belong to a point station, not an entire marine area.</p></div><div><label for="metric">Measurement</label><select id="metric"><option value="windKmh">Mean wind · knots</option><option value="waveM">Significant wave height · m</option><option value="waterC">Sea temperature · °C</option><option value="airC">Air temperature · °C</option><option value="pressureHpa">Station pressure · hPa</option></select></div></div><div id="legend" class="legend"></div><div id="chart"></div><p class="small">Each point is an actual source observation. Lines break at missing readings or gaps over three hours. Wind is a 10-minute mean; wave height is significant wave height over 20 minutes.</p></div>
+<div class="actions"><button id="save">Save receipt JSON</button><button id="export" class="secondary">Export observations CSV</button><label class="file-button" for="import">Import a saved receipt<input type="file" id="import" accept=".json,application/json"></label></div>
+</section>
+<section class="forecast-area" aria-labelledby="forecast-title"><div class="section-title"><div><p class="eyebrow">Forecasts, with a memory</p><h2 id="forecast-title">What was expected?</h2></div><div><label for="forecast">Retained forecast edition</label><select id="forecast"></select></div></div><p class="context">Marine forecasts cover an area. A buoy measures one point within or near that area. Read them together to investigate conditions; this is not an automated forecast accuracy score.</p><div class="forecast-grid"><article id="forecast-text" class="forecast-card"></article><aside class="outcome"><p class="eyebrow">Observed after we saved it</p><h3 id="outcome-title">Waiting for later observations</h3><div id="outcome"></div><p class="small">This only counts observations made after the forecast was first captured by Buoy Bench. A forecast retrieved after its issue time cannot establish what the app knew beforehand. Narrative periods remain as the provider wrote them.</p></aside></div></section>
+<section class="table-section"><details><summary>Inspect the observation records</summary><div class="table-wrap"><table><thead><tr><th>Observed (UTC)</th><th>Mean wind (kn)</th><th>Wave height (m)</th><th>Water (°C)</th><th>Source</th></tr></thead><tbody id="rows"></tbody></table></div><p class="small">Showing the newest 200 records for the selected buoy and window. CSV includes every matching record.</p></details></section>
+<section class="method"><h2>Keep the timing honest.</h2><div><h3>Measured, issued, captured</h3><p>Observation time is when the buoy measured conditions. Forecast issue time comes from ECCC. Capture time is when this project retrieved the record. Select an older capture to see the evidence available then.</p><h3>Make the bench your own</h3><p>The station watchlist and forecast-area mappings are editable in <code>web/config.json</code>. Add another buoy, run the refresh workflow and it appears here. Older retained stations remain available. <a href="https://github.com/jsdyer/buoybench#expand-or-customize">Customization instructions</a>.</p><h3>Source and limits</h3><p>Data Source: Environment and Climate Change Canada. Contains information licenced under the <a href="https://eccc-msc.github.io/open-data/licence/readme_en/">Data Server End-use Licence of ECCC</a>. Observations are provisional. Missing or non-passing QA measurements appear as gaps. This research record is not a navigation or warning service; check <a href="https://weather.gc.ca/marine/">current official marine forecasts and warnings</a> before heading out.</p><p>Scheduled collection is requested every six hours. Captures can be delayed or missed; the displayed dates are authoritative. The page loads published files from CoolCode. Searches and imports stay in this tab; imported receipts are not uploaded or stored automatically.</p><p><a href="https://eccc-msc.github.io/open-data/msc-data/obs_station/readme_obs_insitu_swobdatamart_en/">Observation documentation</a> · <a href="https://eccc-msc.github.io/open-data/msc-data/marine-weather/readme_marine-weather-datamart_en/">Forecast documentation</a></p></div></section>
+<noscript><p>This explorer needs JavaScript. <a href="./data/ledger.json">Download the retained data</a> or visit the official sources above.</p></noscript></main><footer><a href="https://coolcode.ca/">CoolCode.ca</a><nav aria-label="Related tools"><a href="https://coolcode.ca/riverpulse/">River Pulse</a><a href="https://coolcode.ca/tide-and-dark/">Tide &amp; Dark</a></nav>{{ISSUE_LINK}}</footer></body></html>

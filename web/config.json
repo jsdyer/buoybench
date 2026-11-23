@@ -1,0 +1,18 @@
+{
+  "retentionDays": 90,
+  "lookbackDays": 2,
+  "maxFilesPerStationPerDay": 24,
+  "defaultStation": "4600146",
+  "compareStation": "4400258",
+  "stations": [
+    {"id":"4600146","name":"Halibut Bank","coast":"Pacific","forecastId":"m0000028","forecastLocation":"Strait of Georgia - south of Nanaimo"},
+    {"id":"4600131","name":"Sentry Shoal","coast":"Pacific","forecastId":"m0000028","forecastLocation":"Strait of Georgia - north of Nanaimo"},
+    {"id":"4400258","name":"Halifax Harbour","coast":"Atlantic","forecastId":"m0000053","forecastLocation":""},
+    {"id":"4400150","name":"La Have Bank","coast":"Atlantic","forecastId":"m0000046","forecastLocation":""}
+  ],
+  "forecasts": [
+    {"id":"m0000028","domain":"pacific","name":"Strait of Georgia"},
+    {"id":"m0000053","domain":"atlantic","name":"Halifax Harbour and Approaches"},
+    {"id":"m0000046","domain":"atlantic","name":"Southwestern Shore"}
+  ]
+}

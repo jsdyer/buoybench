@@ -1,7 +1,18 @@
-// Keep transformations separate from the DOM so they can be tested directly.
-export function cleanLines(text) {
-  if (typeof text !== 'string') throw new TypeError('Expected text');
-  const lines = text.split(/\r\n|\r|\n/).map(line => line.trim()).filter(Boolean);
-  const unique = [...new Set(lines)];
-  return { text: unique.join('\n'), count: unique.length, removed: lines.length - unique.length };
+export const METRICS={windKmh:{label:'Mean wind',unit:'kn',factor:1/1.852},waveM:{label:'Significant wave height',unit:'m',factor:1},waterC:{label:'Sea temperature',unit:'°C',factor:1},airC:{label:'Air temperature',unit:'°C',factor:1},pressureHpa:{label:'Station pressure',unit:'hPa',factor:1}};
+export function date(value){const n=Date.parse(value);if(!Number.isFinite(n))throw Error('Invalid capture date');return n;}
+export function validateLedger(d){
+ if(d?.schema!=='coolcode.buoybench.v1'||!Array.isArray(d.stations)||!d.stations.length||d.stations.length>100||!Array.isArray(d.observations)||!Array.isArray(d.forecasts)||!Array.isArray(d.captures)||!d.captures.length)throw Error('This is not a Buoy Bench receipt.');
+ date(d.capturedAt);const ids=new Set();for(const s of d.stations){if(!/^\d{5,7}$/.test(s.id)||typeof s.name!=='string'||ids.has(s.id))throw Error('Invalid or duplicated station');ids.add(s.id);}
+ if(d.observations.length>200000||d.forecasts.length>20000||d.captures.length>10000)throw Error('Receipt is too large.');
+ for(const o of d.observations){if(!ids.has(o.stationId)||!o.measurements||typeof o.id!=='string'||!Number.isFinite(o.latitude)||!Number.isFinite(o.longitude))throw Error('Incomplete observation');date(o.observedAt);date(o.capturedAt);for(const v of Object.values(o.measurements))if(v!==null&&(typeof v!=='number'||!Number.isFinite(v)))throw Error('Invalid measurement');}
+ for(const f of d.forecasts){date(f.issuedAt);date(f.capturedAt);if(!/^m\d{7}$/.test(f.areaId)||!Array.isArray(f.sections))throw Error('Invalid forecast');for(const s of f.sections){if(!Array.isArray(s.blocks)||s.blocks.some(b=>typeof b.text!=='string'))throw Error('Invalid forecast text');}}
+ for(const c of d.captures)date(c.capturedAt);return d;
 }
+export function observationsAt(ledger,stationId,cutoff){const limit=date(cutoff),m=new Map();for(const o of ledger.observations){if(o.stationId!==stationId||date(o.capturedAt)>limit)continue;const prior=m.get(o.observedAt);if(!prior||date(o.capturedAt)>=date(prior.capturedAt))m.set(o.observedAt,o);}return [...m.values()].sort((a,b)=>date(a.observedAt)-date(b.observedAt));}
+export function forecastsAt(ledger,station,cutoff){return ledger.forecasts.filter(f=>f.areaId===station.forecastId&&date(f.capturedAt)<=date(cutoff)).sort((a,b)=>date(b.issuedAt)-date(a.issuedAt)||date(b.capturedAt)-date(a.capturedAt));}
+export function afterCapture(observations,forecast){return observations.filter(o=>date(o.observedAt)>date(forecast.capturedAt)&&date(o.observedAt)>date(forecast.issuedAt));}
+export function metricValue(observation,key){const n=observation?.measurements?.[key];return typeof n==='number'&&Number.isFinite(n)?n*(METRICS[key]?.factor||1):null;}
+export function range(rows,key){const ns=rows.map(x=>metricValue(x,key)).filter(x=>x!==null);return ns.length?{count:ns.length,min:Math.min(...ns),max:Math.max(...ns)}:null;}
+export function csv(rows){const headers=['station_id','observed_at','first_captured_at','mean_wind_kn','significant_wave_m','sea_temperature_c','air_temperature_c','station_pressure_hpa','source'];const quote=v=>{let text=String(v??'');if(typeof v==='string'&&/^[=+@\-\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"';};return [headers,...rows.map(o=>[o.stationId,o.observedAt,o.capturedAt,...Object.keys(METRICS).map(k=>metricValue(o,k)),o.source])].map(r=>r.map(quote).join(',')).join('\r\n');}
+export function officialUrl(station){const n=station.id.length===7?station.id.slice(0,2)+station.id.slice(4):station.id;return 'https://weather.gc.ca/marine/weatherConditions-currentConditions_e.html?stationID='+encodeURIComponent(n);}
+export function sourceUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='dd.weather.gc.ca'&&!u.username&&!u.password?u.href:null;}catch{return null;}}

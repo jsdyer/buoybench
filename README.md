@@ -1,116 +1,74 @@
-# CoolCode browser tool template
+# Buoy Bench
 
-A starting point for independent tools at `coolcode.ca/<repo>/`: a working local-text
-example, responsive UI, Python standard-library build, Node tests, PR checks and Pages
-publication. No npm install is needed.
-
-## Using the example
+Compare real ECCC buoy observations in the Pacific and Atlantic, retain marine forecast editions, and review observations made after an edition was saved. The public browser app runs from static files at https://coolcode.ca/buoybench/ and needs no account or API key.
 
 <!-- coolcode:guide -->
-The first occurrence of each trimmed line keeps its place. Compare the output with the original text before copying the result.
+Choose a buoy, comparison buoy and dated capture. Wind is shown in knots, significant wave height in metres, and water temperature in °C; each plotted point is a source observation. Select a retained forecast edition to read what ECCC issued and inspect the later observations. Forecasts describe areas while buoys measure points, so this is a manual comparison rather than an accuracy score. First-run forecasts correctly show that later observations are still awaited. Save a receipt JSON to keep the record outside this tab.
 <!-- /coolcode:guide -->
 
-For a real tool, replace this paragraph with one or two plain-text sentences
-about an example, a limit or how to interpret the results. Keep the source,
-coverage, refresh behaviour and a worked example in this README as appropriate.
-When updating a tool, revise any details its behaviour has changed and keep the
-homepage's shorter data-source sentence in `tool.json` accurate.
-The hub imports the marked note into the catalogue README.
+## Use it
 
-## One-time template setup
+- The initial watchlist contains **Halibut Bank**, **Sentry Shoal**, **Halifax Harbour** and **La Have Bank**. Change either buoy selector to compare coastal readings. The times need not match; the latest times are visible.
+- Choose a measurement and observation window. Missing measurements stay missing, and chart lines break across missing values or gaps longer than three hours. Mean wind is converted from km/h to knots using 1 knot = 1.852 km/h. A 20-minute significant wave height is not the maximum wave height.
+- The forecast panel retains the narrative wording, issue time, first capture time and exact source URL. Where the marine area includes subregions, the configured subregion narrows the displayed regular forecast. Extended forecasts can apply more broadly.
+- **Observed after we saved it** only includes observations whose measurement time is later than the forecast's first capture and issue time. The displayed ranges cover all subsequently retained observations, even beyond the narrative period; they are not automatically paired forecast errors. This avoids claiming predictive evidence from a forecast downloaded after conditions occurred.
+- **Save receipt JSON** downloads the complete retained ledger. **Import a saved receipt** validates and displays one local ledger, replacing only this tab's view. **Export observations CSV** exports all observations matching the selected buoy, capture and window.
+- Source observations may be corrected. Distinct normalized revisions are retained; each dated capture uses the newest revision available at that capture. Counts on the page label revisions explicitly.
 
-Enable **Settings → General → Template repository** here. This repository does not
-need Pages enabled: its workflow builds/tests but intentionally skips deployment.
-New copies also skip deployment until `scripts/init.py` sets the tool ID to match
-their repository name. This lets you create the repo before configuring Pages.
+## Data, retention and meaning
 
-## Start a new tool
+Data Source: **Environment and Climate Change Canada**. Contains information licenced under the [Data Server End-use Licence of ECCC](https://eccc-msc.github.io/open-data/licence/readme_en/). This project is independent and is not endorsed by ECCC.
 
-1. Select **Use this template → Create a new repository**, choose owner `jsdyer`,
-   a unique lowercase name such as `my-tool`, and public visibility.
-2. Clone the new repository. Use Python 3.12+ and Node 24+.
-3. Set the identity, using a slug that matches the repository name:
+Primary sources:
 
-```sh
-python3 scripts/init.py my-tool --title "My Tool" --description "Describe what this tool does."
+- [Marine SWOB observation documentation](https://eccc-msc.github.io/open-data/msc-data/obs_station/readme_obs_insitu_swobdatamart_en/)
+- [SWOB quality-assessment flag guide](https://dd.weather.gc.ca/today/observations/doc/SWOB-ML_Product_User_Guide_v8.17_e.pdf)
+- [Marine station catalogue](https://api.weather.gc.ca/collections/swob-marine-stations/items?f=json&limit=10000)
+- [Marine forecast XML documentation](https://eccc-msc.github.io/open-data/msc-data/marine-weather/readme_marine-weather-datamart_en/)
+- [Forecast area catalogue](https://dd.weather.gc.ca/today/marine_weather/regionList.xml)
+- [Current official forecasts and warnings](https://weather.gc.ca/marine/)
+
+The GitHub workflow requests collection every six hours at minute 17. GitHub schedules can be late or disabled after prolonged repository inactivity. The page labels the actual capture time and flags a published collection older than 18 hours.
+
+The collector reads the last two UTC dates by default, at most 24 files per station per day, and selects the most recently published file for each configured forecast area. Datamart dated archives use `/YYYYMMDD/WXO-DD/`; the `/today/` aliases are documentation/discovery links. Requests use a descriptive User-Agent and a maximum of four concurrent observation downloads. HTTP4xx failures, including rate limits, stop collection; bounded retries are limited to network/5xx failures. A failed required retrieval or parse never replaces the saved ledger or live deployment. A station with no files in the selected date range is explicitly recorded; other stations can still update. A forecast area must have a dated regular forecast for publication.
+
+`web/data/ledger.json` contains observations, forecast editions and capture metadata. The default rolling retention is 90 days. Older versions remain in Git history; download JSON for your own longer archive. Identical forecast republications are deduplicated; changed content becomes a new edition even with the same issue time. The ledger capture date marks completion of a successful collection. Each newly retrieved observation and forecast has its own first-retrieval timestamp. A record capture is when the project first knew that record, not when a forecast was issued or a buoy measured it. Existing observations are not fetched repeatedly by source URL; differently named correction files are new candidates. An upstream change made in place at the same URL is not guaranteed to be detected.
+
+Observations are provisional. Values with a provider `qa_summary` other than `100` are excluded from comparison and the quality code is retained. Fields without a supplied summary are not represented as provider-certified. Missing and unavailable fields stay null. Original units are validated before conversion. Buoys can be seasonal, offline or geographically unrepresentative of an entire forecast area. Forecast text is retained for research; this is not a navigation, current-warning or safety service.
+
+## Expand or customize
+
+Edit **`web/config.json`**. Presets are a watchlist, not an application limit. Add a station using the extended 5–7 digit identifier from the Datamart marine directory. Example additional station:
+
+```json
+{"id":"4600206","name":"La Perouse Bank","coast":"Pacific","forecastId":"","forecastLocation":""}
 ```
 
-Review the category, tags and icon in `tool.json`. `access: "browser"` tells the main
-catalogue that the tool works immediately without installation. `--owner` supports a different
-GitHub owner, but only projects owned by `jsdyer` inherit the CoolCode domain.
+Fields:
 
-4. Replace the example in `web/` and its tests. Update the privacy explanation,
-   source attribution and README to describe the real tool.
-5. Test and preview:
+| Field | Meaning |
+| --- | --- |
+| `id` | Datamart station directory ID; e.g. `4600146`, which corresponds to Halibut Bank's five-digit WMO ID `46146` |
+| `name` | Display name |
+| `coast` | Display grouping |
+| `forecastId` | Optional reference to an entry in `forecasts`; blank means observation-only |
+| `forecastLocation` | Exact subregion name in forecast XML; blank keeps all locations |
+
+Add forecast areas under `forecasts`, with `id`, `domain` and `name` from the official area catalogue. A forecast-area association is your explicit research choice; this app does not automatically claim a buoy is representative of it. Set `defaultStation` and `compareStation` to existing IDs. Tune `retentionDays` (7–365), `lookbackDays` (1–3) and `maxFilesPerStationPerDay` (1–48). Safeguards cap one collection at 50 stations. The UI derives lists and counts from actual retained data; removing a station from the current watchlist does not invalidate earlier captures.
+
+After saving config, push it to main, then run **Buoy Bench · Check and publish** in GitHub Actions with **Refresh source data** checked. A normal source push rebuilds the saved dataset without fetching. Scheduled runs refresh automatically. Locally:
 
 ```sh
+python3 scripts/refresh.py
 node --test tests/*.test.mjs
 python3 -m unittest discover -s tests -v
 python3 scripts/build.py
-python3 -m http.server 8000 --directory dist
 ```
 
-Open `http://localhost:8000/`. The example trims lines, skips blanks and removes exact
-duplicates, preserving first-seen order and capitalization. It processes the text in tab memory. Update that explanation if your app behaves differently.
+Commit changed `web/data/` files together with configuration when collecting locally. The workflow also commits its successful refresh, then tests/builds/deploys that exact commit. Invalid refreshes fail before data replacement. Changing configuration alone does not create new observations.
 
-CI also tests the browser flow and mobile layout at a project subpath. Replace the
-sample assertions in `tests/browser_smoke.py` when implementing your own UI. To run
-that check locally (optional for ordinary preview):
+## Architecture and privacy
 
-```sh
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -r tests/browser-requirements.txt
-python3 -m playwright install --with-deps chromium
-python3 tests/browser_smoke.py
-```
+`web/model.mjs` contains transformations; `web/app.mjs` renders text safely. No secrets, external tiles, fonts or browser API requests are needed. The browser reads only published CoolCode files; source links contact the publisher only when clicked. Imports stay in tab memory and no preferences or uploads are saved automatically. The shared CoolCode visit counter handles aggregate usage independently of inputs.
 
-Playwright is a test-only dependency; the app and its static build do not use it.
-
-## Publish and register
-
-When the actual tool is ready, in the **new tool repository** set **Settings → Pages → Build and deployment →
-Source → GitHub Actions**. Push to `main`, or manually run **Browser tool · Check and
-publish** after enabling Pages. If the initial deployment ran before Pages was enabled,
-enable it and rerun. PRs only check/build and provide a downloadable preview artifact.
-
-Keep `{{VISIT_COUNTER}}` in the page head and `{{ISSUE_LINK}}` in the footer when replacing the starter UI. The build enables these for initialized CoolCode repositories. The shared counter records aggregate opens on coolcode.ca by public tool ID. Toolbox inputs and URL parameters are excluded. The issue link opens a reporting form with the tool already selected.
-
-Keep app-owned asset paths and module imports relative. Check `https://coolcode.ca/my-tool/`.
-Do not add a CNAME or set `coolcode.ca` as this project's custom domain; the account
-site supplies it. Only successful `main` builds deploy.
-
-After verifying the app, copy the reviewed object from `tool.json` into `data/tools.json`
-in [the main site](https://github.com/jsdyer/jsdyer.github.io). Each tool still builds
-independently. Update the hub record when listing metadata changes; the hub is the
-authority for discovery. Ordinary app updates touch only this repository.
-
-The main site separates **Use in your browser** from **Install yourself**. An app
-that asks for a file is still a browser tool. Standalone Linux packages should start
-in their own repositories with their own build/release workflow, rather than copying
-this browser-only scaffold. Their hub record uses `access: "install"`, links to an
-installation guide, and includes `requirements`.
-
-## Files
-
-| Path | Purpose |
-| --- | --- |
-| `tool.json` | Page metadata and a ready-to-copy catalogue record |
-| `web/` | HTML, responsive CSS, DOM interactions and separate model logic |
-| `scripts/build.py` | Escape metadata and build `web/` into `dist/` |
-| `scripts/init.py` | Set a new project's identity |
-| `tests/` | Application and builder tests |
-| `.github/workflows/pages.yml` | Check PRs and publish successful main builds |
-| `AGENTS.md` | Instructions for future coding work |
-
-Namespace optional storage as `coolcode:<tool-id>:<key>`; CoolCode paths share a
-browser origin. Don't save pasted text/uploads by default. Document external APIs
-and send only the information needed for the selected action. Never embed secrets.
-
-Scheduled refresh is opt-in. Validate source data before deploying, display its date,
-and preserve the last good deployment on failure. Public-repository schedules can
-stop after 60 days without repository activity.
-
-Templates don't propagate future edits automatically. Adopt fixes explicitly and
-consider a versioned reusable workflow once several tools confirm the shared process.
-Choose and add the intended software license before distributing a new project.
+The Python standard-library collector parses official XML, stores normalized source data and provenance, and atomically replaces the ledger only after validation. The static build is offline. Browser CI checks station selection, measurement selection, receipt download, safe rendering and mobile width. Source metadata and template build checks are also tested.
