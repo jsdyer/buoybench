@@ -72,3 +72,11 @@ Commit changed `web/data/` files together with configuration when collecting loc
 `web/model.mjs` contains transformations; `web/app.mjs` renders text safely. No secrets, external tiles, fonts or browser API requests are needed. The browser reads only published CoolCode files; source links contact the publisher only when clicked. Imports stay in tab memory and no preferences or uploads are saved automatically. The shared CoolCode visit counter handles aggregate usage independently of inputs.
 
 The Python standard-library collector parses official XML, stores normalized source data and provenance, and atomically replaces the ledger only after validation. The static build is offline. Browser CI checks station selection, measurement selection, receipt download, safe rendering and mobile width. Source metadata and template build checks are also tested.
+
+<!-- schedule-reliability -->
+## Schedule reliability
+
+Public GitHub repositories can have scheduled workflows disabled after 60 days of inactivity. A separate weekly [schedule guard](.github/workflows/schedule-guard.yml) calls GitHub's enable-workflow API for an explicit list of refresh workflows and itself. It can restore workflows disabled for inactivity, preserves manually disabled workflows, and runs independently of collection failures.
+
+This is an interim mitigation, not a scheduling guarantee: GitHub does not document active-workflow renewal as a permanent exemption, and scheduled runs can be delayed or dropped. A scheduler on our own Linux server is the planned independent trigger. The guard does not collect data, create dummy commits, or change source/check timestamps; successful collection and published data freshness still need monitoring.
+<!-- /schedule-reliability -->
